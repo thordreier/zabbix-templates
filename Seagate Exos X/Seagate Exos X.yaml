@@ -8,6 +8,7 @@ zabbix_export:
       template: 'Seagate Exos X'
       name: 'Seagate Exos X'
       description: |
+        https://github.com/thordreier/zabbix-templates
         Tested with:
         - Seagate Exos X 2U12
         Maybe this template also works with (but not tested):
