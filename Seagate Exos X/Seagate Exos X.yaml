@@ -1,0 +1,2012 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 7df96b18c230490a9a0a9e2307226338
+      name: Templates
+  templates:
+    - uuid: bd54112eff1d43ce97a02031967daffc
+      template: 'Seagate Exos X'
+      name: 'Seagate Exos X'
+      description: |
+        Tested with:
+        - Seagate Exos X 2U12
+        Maybe this template also works with (but not tested):
+        - Seagate Exos X 2U24
+        - Dell/EMC PowerVault ME5
+        - HPE MSA
+      vendor:
+        name: 'Thor Dreier'
+        version: '1.0'
+      groups:
+        - name: Templates
+      items:
+        - uuid: 8064c84d8bfb4aa79c01240f60235045
+          name: 'Exos unacknowledged alerts: Count'
+          type: DEPENDENT
+          key: exosAlertsUnacknowledgedCount
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.alertsUnacknowledged.count
+          master_item:
+            key: exosAlertsUnacknowledgedJson
+        - uuid: 13fd0cb7811548f3a8277623cd817edf
+          name: 'Exos unacknowledged alerts: Description'
+          type: DEPENDENT
+          key: exosAlertsUnacknowledgedDescription
+          delay: '0'
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.alertsUnacknowledged.description
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          master_item:
+            key: exosAlertsUnacknowledgedJson
+        - uuid: c26d97860b324d8fb9123829b53858d7
+          name: 'Exos unacknowledged alerts JSON'
+          type: SCRIPT
+          key: exosAlertsUnacknowledgedJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var alertsUnacknowledgedRaw = apiGet("show/alerts/unacknowledged", getHeaders).alerts;
+            var alertsUnacknowledged = {
+              "count": alertsUnacknowledgedRaw.length,
+              "description": alertsUnacknowledgedRaw.map(function (m) {return m["description"]}),
+            };
+            
+            return JSON.stringify({
+              "alertsUnacknowledged": alertsUnacknowledged,
+              // "alertsUnacknowledgedRaw": alertsUnacknowledgedRaw,
+            });
+          triggers:
+            - uuid: cb68c564b75548a8b93303e6dffc8349
+              expression: 'nodata(/Seagate Exos X/exosAlertsUnacknowledgedJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos unacknowledged alerts: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: 4df5d5c324b44711823cc4044719c594
+          name: 'Exos controller JSON'
+          type: SCRIPT
+          key: exosControllerJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var controllersRaw = apiGet("show/controllers", getHeaders).controllers;
+            var controllers = controllersRaw.map(function (m) {
+              var name = m["controller-id"];
+              var id = m["durable-id"];
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "name": name,
+                "id": id,
+                "health": m["health-numeric"],
+                "healthReason": m["health-reason"],
+                "sn": m["serial-number"],
+                "mac": m["mac-address"],
+                "ip": m["ip-address"],
+                "status": m["status-numeric"],
+                "vendor": m["vendor"],
+                "model": m["model"],
+              };
+            });
+            
+            return JSON.stringify({
+              "controllers": controllers,
+              // "controllersRaw": controllersRaw,
+            });
+          triggers:
+            - uuid: a3a0fccc87ee46859b4091c0b91ce0d0
+              expression: 'nodata(/Seagate Exos X/exosControllerJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos controller: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: 6fa4ee47a54f421da51b638d499753db
+          name: 'Exos disk JSON'
+          type: SCRIPT
+          key: exosDiskJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var disksRaw = apiGet("show/disks", getHeaders).drives;
+            var disks = disksRaw.map(function (m) {
+              var name = m["location"];
+              var id = m["serial-number"];
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "name": name,
+                "id": id,
+                "health": m["health-numeric"],
+                "healthReason": m["health-reason"],
+                "sn": m["serial-number"],
+                "size": m["blocksize"] * m["size-numeric"],
+                "vendor": m["vendor"],
+                "model": m["model"],
+                "diskGroup": m["disk-group"],
+                "storagePool": m["storage-pool-name"],
+                "temperature": m["temperature"].replace(/\D/g, ''),
+                "temperatureStatus": m["temperature-status-numeric"],
+                "location": m["location"],
+              };
+            });
+            
+            return JSON.stringify({
+              "disks": disks,
+              // "disksRaw": disksRaw,
+            });
+          triggers:
+            - uuid: 456d61e5d3bd42219e870e0e4d068125
+              expression: 'nodata(/Seagate Exos X/exosDiskJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos disk: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: 35dbce9d702d4d5286278348495652e2
+          name: 'Exos enclosure JSON'
+          type: SCRIPT
+          key: exosEnclosureJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var enclosuresRaw = apiGet("show/enclosures", getHeaders).enclosures;
+            var enclosures = enclosuresRaw.map(function (m) {
+              var name = m["enclosure-id"];
+              var id = m["durable-id"];
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "name": name,
+                "id": id,
+                "health": m["health-numeric"],
+                "healthReason": m["health-reason"],
+                "sn": m["midplane-serial-number"],
+                "status": m["status-numeric"],
+                "vendor": m["vendor"],
+                "model": m["model"],
+              };
+            });
+            
+            return JSON.stringify({
+              "enclosures": enclosures,
+              // "enclosuresRaw": enclosuresRaw,
+            });
+          triggers:
+            - uuid: 24c69538523244a58e61a38a2abddcc1
+              expression: 'nodata(/Seagate Exos X/exosEnclosureJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos enclosure: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: b60fa039a0994ea0943a46716a20aa89
+          name: 'Exos pool JSON'
+          type: SCRIPT
+          key: exosPoolJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var poolsRaw = apiGet("show/pools", getHeaders).pools;
+            var pools = poolsRaw.map(function (m) {
+              var name = m["name"];
+              var id = m["serial-number"];
+              var total = m["blocksize"] * m["total-size-numeric"];
+              var available = m["blocksize"] * m["total-avail-numeric"];
+              var used = total - available;
+              var pused = total ? (used * 100 / total) : 0;
+              var metadataTotal = m["blocksize"] * m["metadata-total-size-numeric"];
+              var metadataAvailable = m["blocksize"] * m["metadata-available-numeric"];
+              var metadataUsed = m["blocksize"] * m["metadata-allocated-numeric"];
+              var metadataPused = metadataTotal ? (metadataUsed * 100 / metadataTotal) : 0;
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "name": name,
+                "id": id,
+                "health": m["health-numeric"],
+                "healthReason": m["health-reason"],
+                "available": available,
+                "pused": pused,
+                "total": total,
+                "used": used,
+                "metadataAvailable": metadataAvailable,
+                "metadataPused": metadataPused,
+                "metadataTotal": metadataTotal,
+                "metadataUsed": metadataUsed,
+              };
+            });
+            
+            return JSON.stringify({
+              "pools": pools,
+              // "poolsRaw": poolsRaw,
+            });
+          triggers:
+            - uuid: 0f4d65bf7252413f835536b5d2464a55
+              expression: 'nodata(/Seagate Exos X/exosPoolJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos pool: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: f846a38a7d2d4bfeb874e3e78464cf00
+          name: 'Exos port JSON'
+          type: SCRIPT
+          key: exosPortJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var portsRaw = apiGet("show/ports", getHeaders).port;
+            var ports = portsRaw.map(function (m) {
+              var name = m["port"];
+              var id = m["durable-id"];
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "name": name,
+                "id": id,
+                "health": m["health-numeric"],
+                "healthReason": m["health-reason"],
+                "status": m["status-numeric"],
+                "speed": m["actual-speed"] ? m["actual-speed"].replace(/Gb/, '') : 0,
+                "type": m["port-type"],
+                "target": m["target-id"],
+              };
+            });
+            
+            return JSON.stringify({
+              "ports": ports,
+              // "portsRaw": portsRaw,
+            });
+          triggers:
+            - uuid: 0775607361f04492aa9a1c2d2073633a
+              expression: 'nodata(/Seagate Exos X/exosPortJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos port: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: ede8700644e04f80bf197aecf4d93838
+          name: 'Exos sensor JSON'
+          type: SCRIPT
+          key: exosSensorJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var sensorsRaw = apiGet("show/sensor-status", getHeaders).sensors;
+            var sensors = sensorsRaw.map(function (m) {
+              var name = m["sensor-name"];
+              var id = m["durable-id"];
+              var type = m["sensor-type-numeric"];
+              var valueNumeric = m["value"].replace(/^([0-9.]*).*$/, "$1");
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "{#TYPE}": type,
+                "name": name,
+                "id": id,
+                "type": type,
+                "status": m["status-numeric"],
+                "container": m["container"],
+                "value": m["value"],
+                "valueNumeric": valueNumeric ? valueNumeric : 0,
+              };
+            });
+            
+            return JSON.stringify({
+              "sensors": sensors,
+              // "sensorsRaw": sensorsRaw,
+            });
+          triggers:
+            - uuid: a9fae450bd8244edba342ddbb0adbe11
+              expression: 'nodata(/Seagate Exos X/exosSensorJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos sensor: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: 71af3316d95b4f6da501bdc02e38ca89
+          name: 'Exos system: Health'
+          type: DEPENDENT
+          key: exosSystemHealth
+          delay: '0'
+          valuemap:
+            name: health
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.health
+          master_item:
+            key: exosSystemJson
+        - uuid: b9f2cd64dcae44c6948e962013b19038
+          name: 'Exos system: Health Reason'
+          type: DEPENDENT
+          key: exosSystemHealthReason
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.healthReason
+          master_item:
+            key: exosSystemJson
+        - uuid: aedf0b30cf114256957ceac4a95196ea
+          name: 'Exos system JSON'
+          type: SCRIPT
+          key: exosSystemJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var systemRaw = apiGet("show/system", getHeaders).system;
+            var m = systemRaw[0];
+            var system = {
+              "name": m["system-name"],
+              "health": m["health-numeric"],
+              "healthReason": m["health-reason"],
+              "sn": m["midplane-serial-number"],
+              "vendor": m["vendor-name"],
+              "model": m["product-brand"] + " " + m["product-id"],
+            };
+            
+            return JSON.stringify({
+              "system": system,
+              // "systemRaw": systemRaw,
+            });
+          triggers:
+            - uuid: 5c775c137cd7453aa732d99f14d171b4
+              expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos system: No data'
+              priority: HIGH
+        - uuid: 62d0ad8d5bdc449c9427d38fa4f25ead
+          name: 'Exos system: Model'
+          type: DEPENDENT
+          key: exosSystemModel
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.model
+          master_item:
+            key: exosSystemJson
+        - uuid: 14a8a058d78543cea7142bf79b2c812f
+          name: 'Exos system: Name'
+          type: DEPENDENT
+          key: exosSystemName
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.name
+          master_item:
+            key: exosSystemJson
+        - uuid: 429222ad1fcb468c90e9b3bbd4e25292
+          name: 'Exos system: Serial Number'
+          type: DEPENDENT
+          key: exosSystemSerialNumber
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.sn
+          master_item:
+            key: exosSystemJson
+        - uuid: 01fb4b10ac2b4e09ba71c360e7cb1420
+          name: 'Exos system: Vendor'
+          type: DEPENDENT
+          key: exosSystemVendor
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.vendor
+          master_item:
+            key: exosSystemJson
+        - uuid: 88afe411d90a4ca6a13db54ab13669e3
+          name: 'Exos volume JSON'
+          type: SCRIPT
+          key: exosVolumeJson
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          params: |
+            var baseUrl = "{$EXOS.API.BASEURL}";
+            var username = "{$EXOS.API.USERNAME}";
+            var password = "{$EXOS.API.PASSWORD}";
+            
+            function apiGet (uri, headers) {
+              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var req = new HttpRequest();
+              req.addHeader("datatype: json");
+              headers.forEach(function (h) {
+                req.addHeader(h);
+              });
+              var resp = req.get(uri);
+              if (req.getStatus() != 200) {
+                throw uri + " returned response code: " + req.getStatus();
+              }
+              return JSON.parse(resp);
+            }
+            
+            login = apiGet("login", ["Authorization: Basic " + btoa(username + ":" + password)]);
+            if (login.status[0]["response-type"] != "Success") {
+              throw "login returned: " + login.status[0].response;
+            }
+            var sessionkey = login .status[0].response;
+            var getHeaders = ["sessionkey: " + sessionkey];
+            
+            var volumesRaw = apiGet("show/volumes", getHeaders).volumes;
+            var volumes = volumesRaw.map(function (m) {
+              var name = m["volume-name"];
+              var id = m["serial-number"];
+              var total = m["blocksize"] * m["total-size-numeric"];
+              var used = m["blocksize"] * m["allocated-size-numeric"];
+              var available = total - used;
+              var pused = total ? (used * 100 / total) : 0;
+              return {
+                "{#NAME}": name,
+                "{#ID}": id,
+                "name": name,
+                "id": id,
+                "health": m["health-numeric"],
+                "healthReason": m["health-reason"],
+                "available": available,
+                "pused": pused,
+                "total": total,
+                "used": used,
+              };
+            });
+            
+            return JSON.stringify({
+              "volumes": volumes,
+              // "volumesRaw": volumesRaw,
+            });
+          triggers:
+            - uuid: 10c36c9f05fe445d969eb36d2c1b1428
+              expression: 'nodata(/Seagate Exos X/exosVolumeJson,{$EXOS.NODATA_TIMEOUT})=1'
+              name: 'Exos volume: No data'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos system: No data'
+                  expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+      discovery_rules:
+        - uuid: b36f2cfcdbc74d4e9f417cb673a2350b
+          name: 'Exos controller discovery'
+          type: DEPENDENT
+          key: exosControllerDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: 00552fee47794cca8cf582a4e0925a6a
+              name: 'Exos controller {#NAME}: Health Reason'
+              type: DEPENDENT
+              key: 'exosControllerHealthReason[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].healthReason.first()'
+              master_item:
+                key: exosControllerJson
+            - uuid: f4821f47288d48bd987b1e6bf4440399
+              name: 'Exos controller {#NAME}: Health'
+              type: DEPENDENT
+              key: 'exosControllerHealth[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: health
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].health.first()'
+              master_item:
+                key: exosControllerJson
+              trigger_prototypes:
+                - uuid: e087b54ed33e4ecab9ad64d5be5e9369
+                  expression: 'nodata(/Seagate Exos X/exosControllerHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos controller {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos controller: No data'
+                      expression: 'nodata(/Seagate Exos X/exosControllerJson,{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: 3f18f69ef10b45088757a3de227fabc5
+              name: 'Exos controller {#NAME}: IP Address'
+              type: DEPENDENT
+              key: 'exosControllerIpAddress[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].ip.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosControllerJson
+            - uuid: e1a93c1aa8694e95b06598f0173896ac
+              name: 'Exos controller {#NAME}: MAC Address'
+              type: DEPENDENT
+              key: 'exosControllerMacAddress[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].mac.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosControllerJson
+            - uuid: 5c5e54fbc1534a2da12276db27e9cca8
+              name: 'Exos controller {#NAME}: Model'
+              type: DEPENDENT
+              key: 'exosControllerModel[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].model.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosControllerJson
+            - uuid: c838586dfd3f4c41962a27643bf7db5e
+              name: 'Exos controller {#NAME}: Serial Number'
+              type: DEPENDENT
+              key: 'exosControllerSerialNumber[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].sn.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosControllerJson
+            - uuid: 161ee5056846432198b530a7b9baadcb
+              name: 'Exos controller {#NAME}: Status'
+              type: DEPENDENT
+              key: 'exosControllerStatus[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: controllerStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].status.first()'
+              master_item:
+                key: exosControllerJson
+              trigger_prototypes:
+                - uuid: 1d9e2e90cbf342518d9de55bf7854baa
+                  expression: 'last(/Seagate Exos X/exosControllerStatus[{#ID}])<>0'
+                  name: 'Exos controller {#NAME}: Status not Operational'
+                  opdata: 'Status: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Exos controller {#NAME}: Health not OK'
+                      expression: |
+                        last(/Seagate Exos X/exosControllerHealth[{#ID}])<>0
+                        and
+                        last(/Seagate Exos X/exosControllerHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+            - uuid: bc2c8dc469c842cdb5415f95cdc3945f
+              name: 'Exos controller {#NAME}: Vendor'
+              type: DEPENDENT
+              key: 'exosControllerVendor[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.controllers[?(@.id == "{#ID}")].vendor.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosControllerJson
+          trigger_prototypes:
+            - uuid: f0de530c099b4e6cbd36f06697a28272
+              expression: |
+                last(/Seagate Exos X/exosControllerHealth[{#ID}])<>0
+                and
+                last(/Seagate Exos X/exosControllerHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+              name: 'Exos controller {#NAME}: Health not OK'
+              opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos controller {#NAME}: No data'
+                  expression: 'nodata(/Seagate Exos X/exosControllerHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+          master_item:
+            key: exosControllerJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.controllers
+        - uuid: 7d25951bc4b54383b73d051dec1c0bce
+          name: 'Exos disk discovery'
+          type: DEPENDENT
+          key: exosDiskDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: 51369020a0dd4634972bd89e772277fa
+              name: 'Exos disk {#NAME}: Disk Group'
+              type: DEPENDENT
+              key: 'exosDiskDiskGroup[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].diskGroup.first()'
+              master_item:
+                key: exosDiskJson
+            - uuid: fff676313c344183ad6716d93b088374
+              name: 'Exos disk {#NAME}: Health Reason'
+              type: DEPENDENT
+              key: 'exosDiskHealthReason[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].healthReason.first()'
+              master_item:
+                key: exosDiskJson
+            - uuid: 7bc01eaf188a4ff0be06917c66ca560c
+              name: 'Exos disk {#NAME}: Health'
+              type: DEPENDENT
+              key: 'exosDiskHealth[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: health
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].health.first()'
+              master_item:
+                key: exosDiskJson
+              trigger_prototypes:
+                - uuid: 4a49beaeb37541029223505db884de2a
+                  expression: 'nodata(/Seagate Exos X/exosDiskHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos disk {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos disk: No data'
+                      expression: 'nodata(/Seagate Exos X/exosDiskJson,{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: eb52d296c74f494b89ab55d5325a6829
+              name: 'Exos disk {#NAME}: Location'
+              type: DEPENDENT
+              key: 'exosDiskLocation[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].location.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosDiskJson
+            - uuid: c643580dcb5a459e9fe0ffe8f157491a
+              name: 'Exos disk {#NAME}: Model'
+              type: DEPENDENT
+              key: 'exosDiskModel[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].model.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosDiskJson
+            - uuid: fccd20cf76ea40b68ec87a61c2da2078
+              name: 'Exos disk {#NAME}: Serial Number'
+              type: DEPENDENT
+              key: 'exosDiskSerialNumber[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].sn.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosDiskJson
+            - uuid: 11538adb818c4491ba1ea5c473ed90ec
+              name: 'Exos disk {#NAME}: Size'
+              type: DEPENDENT
+              key: 'exosDiskSize[{#ID}]'
+              delay: '0'
+              trends: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].size.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosDiskJson
+            - uuid: 5e20d005a5cc43fd8097ba998bf8df22
+              name: 'Exos disk {#NAME}: Storage Pool'
+              type: DEPENDENT
+              key: 'exosDiskStoragePool[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].storagePool.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosDiskJson
+            - uuid: 02965dafd4a44d38a7805195deac9130
+              name: 'Exos disk {#NAME}: Temperature Status'
+              type: DEPENDENT
+              key: 'exosDiskTemperatureStatus[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: temperatureStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].temperatureStatus.first()'
+              master_item:
+                key: exosDiskJson
+            - uuid: 5b94a6a24c3b47409169f5e25a5c388e
+              name: 'Exos disk {#NAME}: Temperature'
+              type: DEPENDENT
+              key: 'exosDiskTemperature[{#ID}]'
+              delay: '0'
+              units: C
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].temperature.first()'
+              master_item:
+                key: exosDiskJson
+            - uuid: 5fdb2b15edbc4bd6a19709ebbeaf3a8c
+              name: 'Exos disk {#NAME}: Vendor'
+              type: DEPENDENT
+              key: 'exosDiskVendor[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.disks[?(@.id == "{#ID}")].vendor.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosDiskJson
+          trigger_prototypes:
+            - uuid: 7079b9498cec47b0b9a77155f3580d69
+              expression: |
+                last(/Seagate Exos X/exosDiskHealth[{#ID}])<>0
+                and
+                last(/Seagate Exos X/exosDiskHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+              name: 'Exos disk {#NAME}: Health not OK'
+              opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos disk {#NAME}: No data'
+                  expression: 'nodata(/Seagate Exos X/exosDiskHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+          master_item:
+            key: exosDiskJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.disks
+        - uuid: 13af7bc8f7ab4495b302bb84648a09b8
+          name: 'Exos enclosure discovery'
+          type: DEPENDENT
+          key: exosEnclosureDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: 5074571614fd4fa0b783523b28366fc2
+              name: 'Exos enclosure {#NAME}: Health Reason'
+              type: DEPENDENT
+              key: 'exosEnclosureHealthReason[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].healthReason.first()'
+              master_item:
+                key: exosEnclosureJson
+            - uuid: 3f3fe7efbe3b4e9cb260262f3d1f73c9
+              name: 'Exos enclosure {#NAME}: Health'
+              type: DEPENDENT
+              key: 'exosEnclosureHealth[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: health
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].health.first()'
+              master_item:
+                key: exosEnclosureJson
+              trigger_prototypes:
+                - uuid: c022c6124baa414caf83cb1b0f427793
+                  expression: 'nodata(/Seagate Exos X/exosEnclosureHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos enclosure {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos enclosure: No data'
+                      expression: 'nodata(/Seagate Exos X/exosEnclosureJson,{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: 89160f35c53f4889af48de41cc16abb4
+              name: 'Exos enclosure {#NAME}: Model'
+              type: DEPENDENT
+              key: 'exosEnclosureModel[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].model.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosEnclosureJson
+            - uuid: f39d63d949d6445bb61589dcc848b4bc
+              name: 'Exos enclosure {#NAME}: Serial Number'
+              type: DEPENDENT
+              key: 'exosEnclosureSerialNumber[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].sn.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosEnclosureJson
+            - uuid: aa62a90b47584309a9aa21cf407e8dc1
+              name: 'Exos enclosure {#NAME}: Status'
+              type: DEPENDENT
+              key: 'exosEnclosureStatus[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: enclosureStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].status.first()'
+              master_item:
+                key: exosEnclosureJson
+              trigger_prototypes:
+                - uuid: c4310fdd01a14162a8ed4200e0f8f6c9
+                  expression: 'last(/Seagate Exos X/exosEnclosureStatus[{#ID}])<>1'
+                  name: 'Exos enclosure {#NAME}: Status not OK'
+                  opdata: 'Status: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: 'Exos enclosure {#NAME}: Health not OK'
+                      expression: |
+                        last(/Seagate Exos X/exosEnclosureHealth[{#ID}])<>0
+                        and
+                        last(/Seagate Exos X/exosEnclosureHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+            - uuid: 060fe85f92954b5883ed18714c96da95
+              name: 'Exos enclosure {#NAME}: Vendor'
+              type: DEPENDENT
+              key: 'exosEnclosureVendor[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].vendor.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosEnclosureJson
+          trigger_prototypes:
+            - uuid: be5a2b31ff784be8be57ce12321c7191
+              expression: |
+                last(/Seagate Exos X/exosEnclosureHealth[{#ID}])<>0
+                and
+                last(/Seagate Exos X/exosEnclosureHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+              name: 'Exos enclosure {#NAME}: Health not OK'
+              opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos enclosure {#NAME}: No data'
+                  expression: 'nodata(/Seagate Exos X/exosEnclosureHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+          master_item:
+            key: exosEnclosureJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.enclosures
+        - uuid: 0d1597ef093a416eb0e61693f6c469b4
+          name: 'Exos pool discovery'
+          type: DEPENDENT
+          key: exosPoolDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: 3f433111fcff42c1bc6a86df6017a78f
+              name: 'Exos pool {#NAME}: Space: Available'
+              type: DEPENDENT
+              key: 'exosPoolAvailable[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].available.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: bbffe959022c42a4879c61f924951979
+              name: 'Exos pool {#NAME}: Health Reason'
+              type: DEPENDENT
+              key: 'exosPoolHealthReason[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].healthReason.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: 6309ba8b27324d779c49419856e13268
+              name: 'Exos pool {#NAME}: Health'
+              type: DEPENDENT
+              key: 'exosPoolHealth[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: health
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].health.first()'
+              master_item:
+                key: exosPoolJson
+              trigger_prototypes:
+                - uuid: a88e80f1ebb946278d70d4272b47bdd9
+                  expression: 'nodata(/Seagate Exos X/exosPoolHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos pool {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos pool: No data'
+                      expression: 'nodata(/Seagate Exos X/exosPoolJson,{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: 02f99274d94f4791b7bf25f9578631c2
+              name: 'Exos pool {#NAME}: Metadata: Available'
+              type: DEPENDENT
+              key: 'exosPoolMetadataAvailable[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].metadataAvailable.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: 91db10ce68db4b849d827f77fe547802
+              name: 'Exos pool {#NAME}: Metadata: Used, in %'
+              type: DEPENDENT
+              key: 'exosPoolMetadataPused[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].metadataPused.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: 48f6e47d96df444d925a033ed0d3e95d
+              name: 'Exos pool {#NAME}: Metadata: Total'
+              type: DEPENDENT
+              key: 'exosPoolMetadataTotal[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].metadataTotal.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: 49534a23fdce47e8be741b7227546886
+              name: 'Exos pool {#NAME}: Metadata: Used'
+              type: DEPENDENT
+              key: 'exosPoolMetadataUsed[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].metadataUsed.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: 35f189c87e2043e1bbc5f90dade1a5a9
+              name: 'Exos pool {#NAME}: Space: Used, in %'
+              type: DEPENDENT
+              key: 'exosPoolPused[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].pused.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: 53369f9e66e2483bbcf514581d38fa9d
+              name: 'Exos pool {#NAME}: Space: Total'
+              type: DEPENDENT
+              key: 'exosPoolTotal[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].total.first()'
+              master_item:
+                key: exosPoolJson
+            - uuid: bae929f6654a4d2a8728d519f78abdca
+              name: 'Exos pool {#NAME}: Space: Used'
+              type: DEPENDENT
+              key: 'exosPoolUsed[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.pools[?(@.id == "{#ID}")].used.first()'
+              master_item:
+                key: exosPoolJson
+          trigger_prototypes:
+            - uuid: df6875c0f6be4afd8585e3bad33a393d
+              expression: |
+                last(/Seagate Exos X/exosPoolHealth[{#ID}])<>0
+                and
+                last(/Seagate Exos X/exosPoolHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+              name: 'Exos pool {#NAME}: Health not OK'
+              opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos pool {#NAME}: No data'
+                  expression: 'nodata(/Seagate Exos X/exosPoolHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: cc93e0850e2e484cac179f3946b0d2cb
+              expression: |
+                last(/Seagate Exos X/exosPoolAvailable[{#ID}])<>-999
+                and
+                last(/Seagate Exos X/exosPoolUsed[{#ID}])<>-999
+                and
+                last(/Seagate Exos X/exosPoolTotal[{#ID}])<>-999
+                and
+                last(/Seagate Exos X/exosPoolPused[{#ID}])>{$EXOS.POOL.PUSED.MAX.CRIT:"{#NAME}"}
+              name: 'Exos pool {#NAME}: Space utilization %'
+              event_name: 'Exos pool {#NAME}: Space utilization above {$EXOS.POOL.PUSED.MAX.CRIT:"{#NAME}"}%'
+              opdata: 'Free: {ITEM.LASTVALUE1}, Used: {ITEM.LASTVALUE2}, Total: {ITEM.LASTVALUE3} ({ITEM.LASTVALUE4})'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos pool {#NAME}: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosPoolHealth[{#ID}])<>0
+                    and
+                    last(/Seagate Exos X/exosPoolHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+          master_item:
+            key: exosPoolJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.pools
+        - uuid: 91d1526cdeba4001a675bdd7484f19c6
+          name: 'Exos port discovery'
+          type: DEPENDENT
+          key: exosPortDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: c230e6750aac4605aea29f4b2940c0ba
+              name: 'Exos port {#NAME}: Health Reason'
+              type: DEPENDENT
+              key: 'exosPortHealthReason[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.ports[?(@.id == "{#ID}")].healthReason.first()'
+              master_item:
+                key: exosPortJson
+            - uuid: 9ed701db58ea434a84ee223278fb9495
+              name: 'Exos port {#NAME}: Health'
+              type: DEPENDENT
+              key: 'exosPortHealth[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: health
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.ports[?(@.id == "{#ID}")].health.first()'
+              master_item:
+                key: exosPortJson
+              trigger_prototypes:
+                - uuid: 27bcdfb1dd9e468f82fe9881252998ba
+                  expression: 'nodata(/Seagate Exos X/exosPortHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos port {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos port: No data'
+                      expression: 'nodata(/Seagate Exos X/exosPortJson,{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: 9f26299f6c1b4a458e62a2e215f6285e
+              name: 'Exos port {#NAME}: Speed'
+              type: DEPENDENT
+              key: 'exosPortSpeed[{#ID}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.ports[?(@.id == "{#ID}")].speed.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosPortJson
+            - uuid: 70e273fbbfdf46efb7c33f3e6b82dc45
+              name: 'Exos port {#NAME}: Status'
+              type: DEPENDENT
+              key: 'exosPortStatus[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: portStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.ports[?(@.id == "{#ID}")].status.first()'
+              master_item:
+                key: exosPortJson
+              trigger_prototypes:
+                - uuid: 3835b0422bf2455585e498649ef4a068
+                  expression: |
+                    last(/Seagate Exos X/exosPortStatus[{#ID}])<>0
+                    and
+                    last(/Seagate Exos X/exosPortStatus[{#ID}],#1)<>last(/Seagate Exos X/exosPortStatus[{#ID}],#2)
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Seagate Exos X/exosPortStatus[{#ID}])=0'
+                  name: 'Exos port {#NAME}: Link not up'
+                  opdata: 'Current state: {ITEM.LASTVALUE1}'
+                  priority: AVERAGE
+                  manual_close: 'YES'
+                  dependencies:
+                    - name: 'Exos port {#NAME}: Health not OK'
+                      expression: |
+                        last(/Seagate Exos X/exosPortHealth[{#ID}])<>0
+                        and
+                        last(/Seagate Exos X/exosPortHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+            - uuid: 411d4011f5d64385a9e64a98e1cebc1d
+              name: 'Exos port {#NAME}: Target'
+              type: DEPENDENT
+              key: 'exosPortTarget[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.ports[?(@.id == "{#ID}")].target.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosPortJson
+            - uuid: 7937c22ae92449d4b25b8a5def24d297
+              name: 'Exos port {#NAME}: Type'
+              type: DEPENDENT
+              key: 'exosPortType[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.ports[?(@.id == "{#ID}")].type.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosPortJson
+          trigger_prototypes:
+            - uuid: 8c540e9557164372a9d5520a640692b7
+              expression: |
+                last(/Seagate Exos X/exosPortHealth[{#ID}])<>0
+                and
+                last(/Seagate Exos X/exosPortHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+              name: 'Exos port {#NAME}: Health not OK'
+              opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos port {#NAME}: No data'
+                  expression: 'nodata(/Seagate Exos X/exosPortHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+          master_item:
+            key: exosPortJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.ports
+        - uuid: 6c69df5b58e8475ba382c5e40374a8ed
+          name: 'Exos sensor discovery'
+          type: DEPENDENT
+          key: exosSensorDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: 898b903d45ec4bc08660dec954ad0df3
+              name: 'Exos sensor {#NAME}: Capacitance'
+              type: DEPENDENT
+              key: 'exosSensorCapacitance[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: Farad
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 720dcc9b78f847f9b64dfaee28e094cf
+              name: 'Exos sensor {#NAME}: Charge Capacity'
+              type: DEPENDENT
+              key: 'exosSensorChargeCapacity[{#ID}]'
+              delay: '0'
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: c3288f63ca004fcb8343ca53b217846e
+              name: 'Exos sensor {#NAME}: Current'
+              type: DEPENDENT
+              key: 'exosSensorCurrent[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              status: DISABLED
+              discover: NO_DISCOVER
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 5766a80689fc4a58911211cf15f12adf
+              name: 'Exos sensor {#NAME}: Resistance'
+              type: DEPENDENT
+              key: 'exosSensorResistance[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: Ohm
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 3b672f93aef342f9abc3c5fea8b596d5
+              name: 'Exos sensor {#NAME}: Status'
+              type: DEPENDENT
+              key: 'exosSensorStatus[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: sensorStatus
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].status.first()'
+              master_item:
+                key: exosSensorJson
+              trigger_prototypes:
+                - uuid: 12ebdd48350d4984b95d7d7cc9434524
+                  expression: 'nodata(/Seagate Exos X/exosSensorStatus[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos sensor {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos sensor: No data'
+                      expression: 'nodata(/Seagate Exos X/exosSensorJson,{$EXOS.NODATA_TIMEOUT})=1'
+                - uuid: b7b2aed16de14feaab1fbe2e96007b4a
+                  expression: 'last(/Seagate Exos X/exosSensorStatus[{#ID}])<>1'
+                  name: 'Exos sensor {#NAME}: Status not OK'
+                  opdata: 'Status: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos sensor {#NAME}: No data'
+                      expression: 'nodata(/Seagate Exos X/exosSensorStatus[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: 6ed3642a80bc49adbe2c1d7131680d8b
+              name: 'Exos sensor {#NAME}: Temperature'
+              type: DEPENDENT
+              key: 'exosSensorTemperature[{#ID}]'
+              delay: '0'
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: C
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 3f5279928f5c4c209cc00cfbc01ec10a
+              name: 'Exos sensor {#NAME}: Type'
+              type: DEPENDENT
+              key: 'exosSensorType[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: sensorType
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].type.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 34a2fdd10b114c1fad521565bf9691be
+              name: 'Exos sensor {#NAME}: Value Numeric'
+              type: DEPENDENT
+              key: 'exosSensorValueNumeric[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 3001b66e1ec34c83aa23ba7763a84c46
+              name: 'Exos sensor {#NAME}: Value'
+              type: DEPENDENT
+              key: 'exosSensorValue[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].value.first()'
+              master_item:
+                key: exosSensorJson
+            - uuid: 45c8688245de4c138148b7c6656731b7
+              name: 'Exos sensor {#NAME}: Voltage'
+              type: DEPENDENT
+              key: 'exosSensorVoltage[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              status: DISABLED
+              discover: NO_DISCOVER
+              units: V
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.sensors[?(@.id == "{#ID}")].valueNumeric.first()'
+              master_item:
+                key: exosSensorJson
+          master_item:
+            key: exosSensorJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.sensors
+          overrides:
+            - name: Temperature
+              step: '1'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: ^0$
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: ': Temperature'
+                  discover: DISCOVER
+                  status: ENABLED
+            - name: Current
+              step: '2'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: ^1$
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: ': Current'
+                  discover: DISCOVER
+                  status: ENABLED
+            - name: Voltage
+              step: '3'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: ^2$
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: ': Voltage'
+                  discover: DISCOVER
+                  status: ENABLED
+            - name: 'Charge Capacity'
+              step: '4'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: ^3$
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: ': Charge Capacity'
+                  discover: DISCOVER
+                  status: ENABLED
+            - name: Capacitance
+              step: '5'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: ^4$
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: ': Capacitance'
+                  discover: DISCOVER
+                  status: ENABLED
+            - name: Resistance
+              step: '6'
+              filter:
+                conditions:
+                  - macro: '{#TYPE}'
+                    value: ^5$
+                    formulaid: A
+              operations:
+                - operationobject: ITEM_PROTOTYPE
+                  operator: LIKE
+                  value: ': Resistance'
+                  discover: DISCOVER
+                  status: ENABLED
+        - uuid: bf92c800e1914004adb2a98ae1e996d8
+          name: 'Exos volume discovery'
+          type: DEPENDENT
+          key: exosVolumeDiscovery
+          delay: '0'
+          enabled_lifetime_type: DISABLE_AFTER
+          enabled_lifetime: 1h
+          item_prototypes:
+            - uuid: c66d189fe0584c2197eda33597f0ff8d
+              name: 'Exos volume {#NAME}: Space: Available'
+              type: DEPENDENT
+              key: 'exosVolumeAvailable[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.volumes[?(@.id == "{#ID}")].available.first()'
+              master_item:
+                key: exosVolumeJson
+            - uuid: 589ef2a1a5d04f1482b1f6b9ae3339e2
+              name: 'Exos volume {#NAME}: Health Reason'
+              type: DEPENDENT
+              key: 'exosVolumeHealthReason[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.volumes[?(@.id == "{#ID}")].healthReason.first()'
+              master_item:
+                key: exosVolumeJson
+            - uuid: f4b917d7cac94c60a84ffe214cad8fcd
+              name: 'Exos volume {#NAME}: Health'
+              type: DEPENDENT
+              key: 'exosVolumeHealth[{#ID}]'
+              delay: '0'
+              valuemap:
+                name: health
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.volumes[?(@.id == "{#ID}")].health.first()'
+              master_item:
+                key: exosVolumeJson
+              trigger_prototypes:
+                - uuid: d0041dbae0a84b0bbae9180a1ee292d2
+                  expression: 'nodata(/Seagate Exos X/exosVolumeHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                  name: 'Exos volume {#NAME}: No data'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Exos volume: No data'
+                      expression: 'nodata(/Seagate Exos X/exosVolumeJson,{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: b6c2a99a5e5d4e829257b10db290495a
+              name: 'Exos volume {#NAME}: Space: Used, in %'
+              type: DEPENDENT
+              key: 'exosVolumePused[{#ID}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.volumes[?(@.id == "{#ID}")].pused.first()'
+              master_item:
+                key: exosVolumeJson
+            - uuid: 629d4203ccce45f88447dffe35fe1f2d
+              name: 'Exos volume {#NAME}: Space: Total'
+              type: DEPENDENT
+              key: 'exosVolumeTotal[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.volumes[?(@.id == "{#ID}")].total.first()'
+              master_item:
+                key: exosVolumeJson
+            - uuid: 55917e799457429d83435448cc8a66f5
+              name: 'Exos volume {#NAME}: Space: Used'
+              type: DEPENDENT
+              key: 'exosVolumeUsed[{#ID}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.volumes[?(@.id == "{#ID}")].used.first()'
+              master_item:
+                key: exosVolumeJson
+          trigger_prototypes:
+            - uuid: 7a75ae9f7d214f53b9b15b8427640daa
+              expression: |
+                last(/Seagate Exos X/exosVolumeHealth[{#ID}])<>0
+                and
+                last(/Seagate Exos X/exosVolumeHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+              name: 'Exos volume {#NAME}: Health not OK'
+              opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos volume {#NAME}: No data'
+                  expression: 'nodata(/Seagate Exos X/exosVolumeHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+            - uuid: a17fed2575c04fea90966a0f733995a7
+              expression: |
+                last(/Seagate Exos X/exosVolumeAvailable[{#ID}])<>-999
+                and
+                last(/Seagate Exos X/exosVolumeUsed[{#ID}])<>-999
+                and
+                last(/Seagate Exos X/exosVolumeTotal[{#ID}])<>-999
+                and
+                last(/Seagate Exos X/exosVolumePused[{#ID}])>{$EXOS.VOLUME.PUSED.MAX.CRIT:"{#NAME}"}
+              name: 'Exos volume {#NAME}: Space utilization %'
+              event_name: 'Exos volume {#NAME}: Space utilization above {$EXOS.VOLUME.PUSED.MAX.CRIT:"{#NAME}"}%'
+              opdata: 'Free: {ITEM.LASTVALUE1}, Used: {ITEM.LASTVALUE2}, Total: {ITEM.LASTVALUE3} ({ITEM.LASTVALUE4})'
+              priority: HIGH
+              dependencies:
+                - name: 'Exos volume {#NAME}: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosVolumeHealth[{#ID}])<>0
+                    and
+                    last(/Seagate Exos X/exosVolumeHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+          master_item:
+            key: exosVolumeJson
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.volumes
+      macros:
+        - macro: '{$EXOS.API.BASEURL}'
+        - macro: '{$EXOS.API.PASSWORD}'
+        - macro: '{$EXOS.API.USERNAME}'
+        - macro: '{$EXOS.NODATA_TIMEOUT}'
+          value: 5m
+        - macro: '{$EXOS.POOL.PUSED.MAX.CRIT}'
+          value: '95'
+        - macro: '{$EXOS.VOLUME.PUSED.MAX.CRIT}'
+          value: '95'
+      valuemaps:
+        - uuid: 6d7b2230fb5e44cd91fbef8d0e3651e6
+          name: controllerStatus
+          mappings:
+            - value: '0'
+              newvalue: Operational
+            - value: '1'
+              newvalue: Down
+            - value: '2'
+              newvalue: 'Not Installed'
+        - uuid: f23afc13eb0547c792c43ff08087a585
+          name: enclosureStatus
+          mappings:
+            - value: '0'
+              newvalue: Unsupported
+            - value: '1'
+              newvalue: OK
+            - value: '2'
+              newvalue: Critical
+            - value: '3'
+              newvalue: Warning
+            - value: '4'
+              newvalue: Unrecoverable
+            - value: '5'
+              newvalue: 'Not Installed'
+            - value: '6'
+              newvalue: Unknown
+            - value: '7'
+              newvalue: Unavailable
+        - uuid: 9b53c0c68f6340bd86ad88110304f7af
+          name: health
+          mappings:
+            - value: '0'
+              newvalue: OK
+            - value: '1'
+              newvalue: Degraded
+            - value: '2'
+              newvalue: Fault
+            - value: '3'
+              newvalue: Unknown
+            - value: '4'
+              newvalue: N/A
+        - uuid: 094f9d8e99614a34b04f0155396aad7f
+          name: portStatus
+          mappings:
+            - value: '0'
+              newvalue: Up
+            - value: '1'
+              newvalue: Warning
+            - value: '2'
+              newvalue: Error
+            - value: '3'
+              newvalue: 'Not Present'
+            - value: '6'
+              newvalue: Disconnected
+        - uuid: c781e0a7599c46e9bb391d6ef5b6d267
+          name: sensorStatus
+          mappings:
+            - value: '0'
+              newvalue: Unsupported
+            - value: '1'
+              newvalue: OK
+            - value: '2'
+              newvalue: Critical
+            - value: '3'
+              newvalue: Warning
+            - value: '4'
+              newvalue: Unrecoverable
+            - value: '5'
+              newvalue: 'Not Installed'
+            - value: '6'
+              newvalue: Unknown
+            - value: '7'
+              newvalue: Unavailable
+        - uuid: fd9852de8bfe469c8ccdc324928f21f6
+          name: sensorType
+          mappings:
+            - value: '0'
+              newvalue: Temperature
+            - value: '1'
+              newvalue: Current
+            - value: '2'
+              newvalue: Voltage
+            - value: '3'
+              newvalue: 'Charge Capacity'
+            - value: '4'
+              newvalue: Capacitance
+            - value: '5'
+              newvalue: Resistance
+            - value: '6'
+              newvalue: 'Unknown Type'
+        - uuid: fce57f722ab34ea9b717ae5e2f7e9305
+          name: temperatureStatus
+          mappings:
+            - value: '1'
+              newvalue: OK
+            - value: '2'
+              newvalue: Critical
+            - value: '3'
+              newvalue: Warning
+  triggers:
+    - uuid: ad3ef30ec45e461296299db78085da80
+      expression: |
+        last(/Seagate Exos X/exosSystemHealth)<>0
+        and
+        last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
+      name: 'Exos system: Health not OK'
+      opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
+      priority: HIGH
+      dependencies:
+        - name: 'Exos system: No data'
+          expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+    - uuid: 1da1663806444f1eac58fbd1c9c6441c
+      expression: |
+        last(/Seagate Exos X/exosAlertsUnacknowledgedCount)<>0
+        and
+        last(/Seagate Exos X/exosAlertsUnacknowledgedDescription)<>"NONEXISTINGVALUE"
+      name: 'Exos unacknowledged alerts'
+      opdata: 'Count: {ITEM.LASTVALUE1}, description: {ITEM.LASTVALUE2}'
+      priority: WARNING
+      dependencies:
+        - name: 'Exos unacknowledged alerts: No data'
+          expression: 'nodata(/Seagate Exos X/exosAlertsUnacknowledgedJson,{$EXOS.NODATA_TIMEOUT})=1'
