@@ -61,7 +61,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -82,6 +82,7 @@ zabbix_export:
             var getHeaders = ["sessionkey: " + sessionkey];
             
             var alertsUnacknowledgedRaw = apiGet("show/alerts/unacknowledged", getHeaders).alerts;
+            alertsUnacknowledgedRaw = alertsUnacknowledgedRaw.filter(function (m) {return m["resolved-numeric"]!=1})
             var alertsUnacknowledged = {
               "count": alertsUnacknowledgedRaw.length,
               "description": alertsUnacknowledgedRaw.map(function (m) {return m["description"]}),
@@ -91,6 +92,7 @@ zabbix_export:
               "alertsUnacknowledged": alertsUnacknowledged,
               // "alertsUnacknowledgedRaw": alertsUnacknowledgedRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: cb68c564b75548a8b93303e6dffc8349
               expression: 'nodata(/Seagate Exos X/exosAlertsUnacknowledgedJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -112,7 +114,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -156,6 +158,7 @@ zabbix_export:
               "controllers": controllers,
               // "controllersRaw": controllersRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: a3a0fccc87ee46859b4091c0b91ce0d0
               expression: 'nodata(/Seagate Exos X/exosControllerJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -177,7 +180,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -224,6 +227,7 @@ zabbix_export:
               "disks": disks,
               // "disksRaw": disksRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: 456d61e5d3bd42219e870e0e4d068125
               expression: 'nodata(/Seagate Exos X/exosDiskJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -245,7 +249,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -265,6 +269,7 @@ zabbix_export:
             var sessionkey = login .status[0].response;
             var getHeaders = ["sessionkey: " + sessionkey];
             
+            var systemRaw = apiGet("show/system", getHeaders).system;
             var enclosuresRaw = apiGet("show/enclosures", getHeaders).enclosures;
             var enclosures = enclosuresRaw.map(function (m) {
               var name = m["enclosure-id"];
@@ -272,7 +277,7 @@ zabbix_export:
               return {
                 "{#NAME}": name,
                 "{#ID}": id,
-                "name": name,
+                "name": systemRaw[0]["system-name"] + "-enclosure-" + name,
                 "id": id,
                 "health": m["health-numeric"],
                 "healthReason": m["health-reason"],
@@ -280,6 +285,7 @@ zabbix_export:
                 "status": m["status-numeric"],
                 "vendor": m["vendor"],
                 "model": m["model"],
+                "hardware": m["vendor"] + " " + m["model"],
               };
             });
             
@@ -287,6 +293,7 @@ zabbix_export:
               "enclosures": enclosures,
               // "enclosuresRaw": enclosuresRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: 24c69538523244a58e61a38a2abddcc1
               expression: 'nodata(/Seagate Exos X/exosEnclosureJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -308,7 +315,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -362,6 +369,7 @@ zabbix_export:
               "pools": pools,
               // "poolsRaw": poolsRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: 0f4d65bf7252413f835536b5d2464a55
               expression: 'nodata(/Seagate Exos X/exosPoolJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -383,7 +391,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -425,6 +433,7 @@ zabbix_export:
               "ports": ports,
               // "portsRaw": portsRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: 0775607361f04492aa9a1c2d2073633a
               expression: 'nodata(/Seagate Exos X/exosPortJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -446,7 +455,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -490,6 +499,7 @@ zabbix_export:
               "sensors": sensors,
               // "sensorsRaw": sensorsRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: a9fae450bd8244edba342ddbb0adbe11
               expression: 'nodata(/Seagate Exos X/exosSensorJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -498,6 +508,20 @@ zabbix_export:
               dependencies:
                 - name: 'Exos system: No data'
                   expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+        - uuid: 8ab96cce07424c7c99b88a4e2b372cbf
+          name: 'Exos system: Hardware'
+          type: DEPENDENT
+          key: exosSystemHardware
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          inventory_link: HARDWARE
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.hardware
+          master_item:
+            key: exosSystemJson
         - uuid: 71af3316d95b4f6da501bdc02e38ca89
           name: 'Exos system: Health'
           type: DEPENDENT
@@ -537,7 +561,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -566,12 +590,15 @@ zabbix_export:
               "sn": m["midplane-serial-number"],
               "vendor": m["vendor-name"],
               "model": m["product-brand"] + " " + m["product-id"],
+              "hardware": m["vendor-name"] + " " + m["product-brand"] + " " + m["product-id"],
+              "os": m["vendor-name"] + " " + m["product-brand"],
             };
             
             return JSON.stringify({
               "system": system,
               // "systemRaw": systemRaw,
             });
+          timeout: 15s
           triggers:
             - uuid: 5c775c137cd7453aa732d99f14d171b4
               expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -597,10 +624,25 @@ zabbix_export:
           delay: '0'
           value_type: CHAR
           trends: '0'
+          inventory_link: NAME
           preprocessing:
             - type: JSONPATH
               parameters:
                 - $.system.name
+          master_item:
+            key: exosSystemJson
+        - uuid: 245028b177284a6891a6ab9064377d52
+          name: 'Exos system: Operating System'
+          type: DEPENDENT
+          key: exosSystemOS
+          delay: '0'
+          value_type: CHAR
+          trends: '0'
+          inventory_link: OS
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.system.os
           master_item:
             key: exosSystemJson
         - uuid: 429222ad1fcb468c90e9b3bbd4e25292
@@ -610,6 +652,7 @@ zabbix_export:
           delay: '0'
           value_type: CHAR
           trends: '0'
+          inventory_link: SERIALNO_A
           preprocessing:
             - type: JSONPATH
               parameters:
@@ -629,6 +672,55 @@ zabbix_export:
                 - $.system.vendor
           master_item:
             key: exosSystemJson
+        - uuid: c29c2ea490d54c2e87c9c6d6f9244c03
+          name: 'Exos total volume: Space: Available'
+          type: DEPENDENT
+          key: exosTotalVolumeAvailable
+          delay: '0'
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.volumesTotal.available
+          master_item:
+            key: exosVolumeJson
+        - uuid: 0af6a57043874bef9426efa8848542fd
+          name: 'Exos total volume: Space: Used, in %'
+          type: DEPENDENT
+          key: exosTotalVolumePused
+          delay: '0'
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.volumesTotal.pused
+          master_item:
+            key: exosVolumeJson
+        - uuid: fe413097b5614e6fa00b7289710807cb
+          name: 'Exos total volume: Space: Total'
+          type: DEPENDENT
+          key: exosTotalVolumeTotal
+          delay: '0'
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.volumesTotal.total
+          master_item:
+            key: exosVolumeJson
+        - uuid: 6d62d6d6b0bf402fb40f18df946b460b
+          name: 'Exos total volume: Space: Used'
+          type: DEPENDENT
+          key: exosTotalVolumeUsed
+          delay: '0'
+          units: B
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.volumesTotal.used
+          master_item:
+            key: exosVolumeJson
         - uuid: 88afe411d90a4ca6a13db54ab13669e3
           name: 'Exos volume JSON'
           type: SCRIPT
@@ -642,7 +734,7 @@ zabbix_export:
             var password = "{$EXOS.API.PASSWORD}";
             
             function apiGet (uri, headers) {
-              var uri = "{$EXOS.API.BASEURL}" + "/api/" + uri;
+              var uri = baseUrl + "/api/" + uri;
               var req = new HttpRequest();
               req.addHeader("datatype: json");
               headers.forEach(function (h) {
@@ -662,6 +754,8 @@ zabbix_export:
             var sessionkey = login .status[0].response;
             var getHeaders = ["sessionkey: " + sessionkey];
             
+            var totalTotal = 0;
+            var totalUsed = 0;
             var volumesRaw = apiGet("show/volumes", getHeaders).volumes;
             var volumes = volumesRaw.map(function (m) {
               var name = m["volume-name"];
@@ -670,6 +764,8 @@ zabbix_export:
               var used = m["blocksize"] * m["allocated-size-numeric"];
               var available = total - used;
               var pused = total ? (used * 100 / total) : 0;
+              totalTotal += total;
+              totalUsed += used;
               return {
                 "{#NAME}": name,
                 "{#ID}": id,
@@ -684,10 +780,21 @@ zabbix_export:
               };
             });
             
+            var totalAvailable = totalTotal - totalUsed;
+            var totalPused = totalTotal ? (totalUsed * 100 / totalTotal) : 0;
+            var volumesTotal = {
+              "available": totalAvailable,
+              "pused": totalPused,
+              "total": totalTotal,
+              "used": totalUsed,
+            };
+            
             return JSON.stringify({
               "volumes": volumes,
               // "volumesRaw": volumesRaw,
+              "volumesTotal": volumesTotal,
             });
+          timeout: 15s
           triggers:
             - uuid: 10c36c9f05fe445d969eb36d2c1b1428
               expression: 'nodata(/Seagate Exos X/exosVolumeJson,{$EXOS.NODATA_TIMEOUT})=1'
@@ -856,6 +963,11 @@ zabbix_export:
               dependencies:
                 - name: 'Exos controller {#NAME}: No data'
                   expression: 'nodata(/Seagate Exos X/exosControllerHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                - name: 'Exos system: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosSystemHealth)<>0
+                    and
+                    last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
           master_item:
             key: exosControllerJson
           preprocessing:
@@ -1050,6 +1162,11 @@ zabbix_export:
               dependencies:
                 - name: 'Exos disk {#NAME}: No data'
                   expression: 'nodata(/Seagate Exos X/exosDiskHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                - name: 'Exos system: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosSystemHealth)<>0
+                    and
+                    last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
           master_item:
             key: exosDiskJson
           preprocessing:
@@ -1064,6 +1181,22 @@ zabbix_export:
           enabled_lifetime_type: DISABLE_AFTER
           enabled_lifetime: 1h
           item_prototypes:
+            - uuid: 0f657dd2be3947d1a62fcc54c3764c59
+              name: 'Exos enclosure {#NAME}: Hardware'
+              type: DEPENDENT
+              key: 'exosEnclosureHardware[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].hardware.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosEnclosureJson
             - uuid: 5074571614fd4fa0b783523b28366fc2
               name: 'Exos enclosure {#NAME}: Health Reason'
               type: DEPENDENT
@@ -1109,6 +1242,22 @@ zabbix_export:
                 - type: JSONPATH
                   parameters:
                     - '$.enclosures[?(@.id == "{#ID}")].model.first()'
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              master_item:
+                key: exosEnclosureJson
+            - uuid: d04d1acb06a547ed8aa2d40d520ec72f
+              name: 'Exos enclosure {#NAME}: Name'
+              type: DEPENDENT
+              key: 'exosEnclosureName[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.enclosures[?(@.id == "{#ID}")].name.first()'
                 - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
                     - 1d
@@ -1183,6 +1332,11 @@ zabbix_export:
               dependencies:
                 - name: 'Exos enclosure {#NAME}: No data'
                   expression: 'nodata(/Seagate Exos X/exosEnclosureHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                - name: 'Exos system: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosSystemHealth)<>0
+                    and
+                    last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
           master_item:
             key: exosEnclosureJson
           preprocessing:
@@ -1341,6 +1495,11 @@ zabbix_export:
               dependencies:
                 - name: 'Exos pool {#NAME}: No data'
                   expression: 'nodata(/Seagate Exos X/exosPoolHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                - name: 'Exos system: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosSystemHealth)<>0
+                    and
+                    last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
             - uuid: cc93e0850e2e484cac179f3946b0d2cb
               expression: |
                 last(/Seagate Exos X/exosPoolAvailable[{#ID}])<>-999
@@ -1360,6 +1519,61 @@ zabbix_export:
                     last(/Seagate Exos X/exosPoolHealth[{#ID}])<>0
                     and
                     last(/Seagate Exos X/exosPoolHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+          graph_prototypes:
+            - uuid: a5dfdd592504432c80b11c81b24b04ae
+              name: 'Exos pool {#NAME}: Metadata space usage graph, in %'
+              width: '600'
+              height: '340'
+              ymin_type_1: FIXED
+              ymax_type_1: FIXED
+              graph_items:
+                - drawtype: FILLED_REGION
+                  color: B0BEC5
+                  calc_fnc: ALL
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosPoolMetadataPused[{#ID}]'
+            - uuid: 15c857dc9db74e62b382363cc0afcb4b
+              name: 'Exos pool {#NAME}: Space usage graph, in %'
+              width: '600'
+              height: '340'
+              ymin_type_1: FIXED
+              ymax_type_1: FIXED
+              graph_items:
+                - drawtype: FILLED_REGION
+                  color: F63100
+                  calc_fnc: ALL
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosPoolPused[{#ID}]'
+            - uuid: add4c0d5b7574777b6b103927f562a2b
+              name: 'Exos pool {#NAME}: Space utilization chart'
+              width: '600'
+              height: '340'
+              yaxismax: '0'
+              show_work_period: 'NO'
+              show_triggers: 'NO'
+              type: PIE
+              show_3d: 'YES'
+              graph_items:
+                - color: '787878'
+                  calc_fnc: LAST
+                  type: GRAPH_SUM
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosPoolTotal[{#ID}]'
+                - sortorder: '1'
+                  color: F63100
+                  calc_fnc: LAST
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosPoolUsed[{#ID}]'
+                - sortorder: '2'
+                  color: 199C09
+                  calc_fnc: LAST
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosPoolAvailable[{#ID}]'
           master_item:
             key: exosPoolJson
           preprocessing:
@@ -1497,6 +1711,11 @@ zabbix_export:
               dependencies:
                 - name: 'Exos port {#NAME}: No data'
                   expression: 'nodata(/Seagate Exos X/exosPortHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                - name: 'Exos system: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosSystemHealth)<>0
+                    and
+                    last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
           master_item:
             key: exosPortJson
           preprocessing:
@@ -1598,6 +1817,11 @@ zabbix_export:
                   dependencies:
                     - name: 'Exos sensor {#NAME}: No data'
                       expression: 'nodata(/Seagate Exos X/exosSensorStatus[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
+                    - name: 'Exos system: Health not OK'
+                      expression: |
+                        last(/Seagate Exos X/exosSystemHealth)<>0
+                        and
+                        last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
             - uuid: 6ed3642a80bc49adbe2c1d7131680d8b
               name: 'Exos sensor {#NAME}: Temperature'
               type: DEPENDENT
@@ -1851,6 +2075,11 @@ zabbix_export:
               opdata: 'Status: {ITEM.LASTVALUE1}, reason: {ITEM.LASTVALUE2}'
               priority: HIGH
               dependencies:
+                - name: 'Exos system: Health not OK'
+                  expression: |
+                    last(/Seagate Exos X/exosSystemHealth)<>0
+                    and
+                    last(/Seagate Exos X/exosSystemHealthReason)<>"NONEXISTINGVALUE"
                 - name: 'Exos volume {#NAME}: No data'
                   expression: 'nodata(/Seagate Exos X/exosVolumeHealth[{#ID}],{$EXOS.NODATA_TIMEOUT})=1'
             - uuid: a17fed2575c04fea90966a0f733995a7
@@ -1872,12 +2101,57 @@ zabbix_export:
                     last(/Seagate Exos X/exosVolumeHealth[{#ID}])<>0
                     and
                     last(/Seagate Exos X/exosVolumeHealthReason[{#ID}])<>"NONEXISTINGVALUE"
+          graph_prototypes:
+            - uuid: 92eb2c2a91e64eeba9fe9547ebfa888d
+              name: 'Exos volume {#NAME}: Space usage graph, in %'
+              width: '600'
+              height: '340'
+              ymin_type_1: FIXED
+              ymax_type_1: FIXED
+              graph_items:
+                - drawtype: FILLED_REGION
+                  color: F63100
+                  calc_fnc: ALL
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosVolumePused[{#ID}]'
+            - uuid: 5a2072953183483d925a5d5c59a7dabe
+              name: 'Exos volume {#NAME}: Space utilization chart'
+              width: '600'
+              height: '340'
+              yaxismax: '0'
+              show_work_period: 'NO'
+              show_triggers: 'NO'
+              type: PIE
+              show_3d: 'YES'
+              graph_items:
+                - color: '787878'
+                  calc_fnc: LAST
+                  type: GRAPH_SUM
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosVolumeTotal[{#ID}]'
+                - sortorder: '1'
+                  color: F63100
+                  calc_fnc: LAST
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosVolumeUsed[{#ID}]'
+                - sortorder: '2'
+                  color: 199C09
+                  calc_fnc: LAST
+                  item:
+                    host: 'Seagate Exos X'
+                    key: 'exosVolumeAvailable[{#ID}]'
           master_item:
             key: exosVolumeJson
           preprocessing:
             - type: JSONPATH
               parameters:
                 - $.volumes
+      tags:
+        - tag: monitortype
+          value: Standard
       macros:
         - macro: '{$EXOS.API.BASEURL}'
         - macro: '{$EXOS.API.PASSWORD}'
@@ -1886,6 +2160,8 @@ zabbix_export:
           value: 5m
         - macro: '{$EXOS.POOL.PUSED.MAX.CRIT}'
           value: '95'
+        - macro: '{$EXOS.TOTAL.PUSED.MAX.CRIT}'
+          value: '85'
         - macro: '{$EXOS.VOLUME.PUSED.MAX.CRIT}'
           value: '95'
       valuemaps:
@@ -2000,6 +2276,19 @@ zabbix_export:
       dependencies:
         - name: 'Exos system: No data'
           expression: 'nodata(/Seagate Exos X/exosSystemJson,{$EXOS.NODATA_TIMEOUT})=1'
+    - uuid: 0f2b74cb826b49c08878c4b07df5de1c
+      expression: |
+        last(/Seagate Exos X/exosTotalVolumeAvailable)<>-999
+        and
+        last(/Seagate Exos X/exosTotalVolumeUsed)<>-999
+        and
+        last(/Seagate Exos X/exosTotalVolumeTotal)<>-999
+        and
+        last(/Seagate Exos X/exosTotalVolumePused)>{$EXOS.TOTAL.PUSED.MAX.CRIT}
+      name: 'Exos total volume: Space utilization %'
+      event_name: 'Exos total volume: Space utilization above {$EXOS.TOTAL.PUSED.MAX.CRIT}%'
+      opdata: 'Free: {ITEM.LASTVALUE1}, Used: {ITEM.LASTVALUE2}, Total: {ITEM.LASTVALUE3} ({ITEM.LASTVALUE4})'
+      priority: HIGH
     - uuid: 1da1663806444f1eac58fbd1c9c6441c
       expression: |
         last(/Seagate Exos X/exosAlertsUnacknowledgedCount)<>0
@@ -2011,3 +2300,45 @@ zabbix_export:
       dependencies:
         - name: 'Exos unacknowledged alerts: No data'
           expression: 'nodata(/Seagate Exos X/exosAlertsUnacknowledgedJson,{$EXOS.NODATA_TIMEOUT})=1'
+  graphs:
+    - uuid: d39132d440aa4af598b9b82d11bca387
+      name: 'Exos total volume: Space usage graph, in %'
+      width: '600'
+      height: '340'
+      ymin_type_1: FIXED
+      ymax_type_1: FIXED
+      graph_items:
+        - drawtype: FILLED_REGION
+          color: F63100
+          calc_fnc: ALL
+          item:
+            host: 'Seagate Exos X'
+            key: exosTotalVolumePused
+    - uuid: a1a66b6780314e9b9c0363a81ea1f690
+      name: 'Exos total volume: Space utilization chart'
+      width: '600'
+      height: '340'
+      yaxismax: '0'
+      show_work_period: 'NO'
+      show_triggers: 'NO'
+      type: PIE
+      show_3d: 'YES'
+      graph_items:
+        - color: '787878'
+          calc_fnc: LAST
+          type: GRAPH_SUM
+          item:
+            host: 'Seagate Exos X'
+            key: exosTotalVolumeTotal
+        - sortorder: '1'
+          color: F63100
+          calc_fnc: LAST
+          item:
+            host: 'Seagate Exos X'
+            key: exosTotalVolumeUsed
+        - sortorder: '2'
+          color: 199C09
+          calc_fnc: LAST
+          item:
+            host: 'Seagate Exos X'
+            key: exosTotalVolumeAvailable
